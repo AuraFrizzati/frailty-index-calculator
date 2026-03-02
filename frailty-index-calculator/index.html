@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frailty Index Calculator</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --background-color: #f4f7f6;
+            --card-bg: #ffffff;
+            --text-color: #333;
+            --border-radius: 8px;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--secondary-color);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            color: var(--secondary-color);
+            margin-top: 30px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+
+        .form-group {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding: 8px;
+            background-color: #fafafa;
+            border-radius: 4px;
+        }
+
+        .form-group label {
+            flex: 1;
+            font-weight: 500;
+        }
+
+        .form-group select, .form-group input {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 200px;
+            font-size: 14px;
+        }
+
+        .note {
+            font-size: 0.85em;
+            color: #666;
+            margin-top: -8px;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        button {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            border-radius: var(--border-radius);
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 30px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        #result-section {
+            display: none;
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: var(--border-radius);
+            text-align: center;
+        }
+
+        .score-display {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .interpretation {
+            font-size: 1.5em;
+            font-weight: 600;
+        }
+
+        .missing-data-note {
+            font-size: 0.9em;
+            margin-top: 15px;
+            color: #555;
+        }
+
+        /* Result Colors */
+        .fit { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .well { background-color: #e2e3e5; color: #383d41; border: 1px solid #d6d8db; }
+        .managing { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+        .vulnerable { background-color: #fdfdfe; color: #e67e22; border: 1px solid #f39c12; }
+        .mildly-frail { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .moderately-frail { background-color: #f1b0b7; color: #721c24; border: 1px solid #e7828f; }
+        .severely-frail { background-color: #c82333; color: white; border: 1px solid #bd2130; }
+
+        @media (max-width: 600px) {
+            .form-group {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .form-group select, .form-group input {
+                width: 100%;
+                margin-top: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Frailty Index Calculator</h1>
+    <p>Please answer the following questions to calculate your functional aging and vulnerability score. If you do not know the answer to a question, select "Don't Know / Not Tested" and it will be excluded from your final calculation.</p>
+
+    <h2>Category A: Diseases</h2>
+    <div id="category-a">
+        </div>
+    
+    <div class="form-group">
+        <label for="cancer-input">Cancer (Distinct types)</label>
+        <input type="number" id="cancer-input" min="0" placeholder="Enter number of types (e.g., 0, 1, 2)">
+    </div>
+    <span class="note">*Leave blank if you don't know. Enter 0 if you have never had cancer. Count 1 point for each distinct type.</span>
+
+    <h2>Category B: Functioning</h2>
+    <p>Rate your level of difficulty with the following tasks without help or special equipment.</p>
+    <div id="category-b">
+        </div>
+
+    <h2>Category C: Lab Tests</h2>
+    <p>Do your most recent results fall within these categories?</p>
+    <div id="category-c">
+        </div>
+
+    <button onclick="calculateScore()">Calculate Frailty Score</button>
+
+    <div id="result-section">
+        <div class="score-display">Score: <span id="score-val">0.00</span></div>
+        <div class="interpretation" id="score-interp">Interpretation</div>
+        <div class="missing-data-note" id="data-note"></div>
+    </div>
+</div>
+
+<script>
+    // --- Data Definitions ---
+    const catA_diseases = [
+        "Type 2 Diabetes", "Congestive Heart Failure", "Coronary Heart Disease", 
+        "Angina", "Heart Attack", "Atrial Fibrillation", "Stroke", 
+        "Emphysema", "Chronic Bronchitis", "COPD", "Liver Condition", 
+        "Dementia", "Arthritis", "Osteoporosis", "Hearing Impairment"
+    ]; // Cancer is handled manually
+
+    const catB_functioning = [
+        "Walking 1/4 mile", "Walking up 10 steps", "Stooping, crouching, or kneeling", 
+        "Lifting or carrying 10 pounds", "Walking between rooms", "Standing up from an armless chair", 
+        "Getting in or out of bed", "Holding utensils", "Standing for more than 30 minutes", 
+        "Reaching overhead", "Remembering what you ate for dinner the night before", "Walking on an uneven surface without falling"
+    ];
+
+    const catC_labs = [
+        "Triglyceride level of 150 mg/dL or more", "HDL cholesterol level less than 40 mg/dL", 
+        "LDL cholesterol level more than 160 mg/dL", "Systolic blood pressure (top number) of 130 mm Hg or more", 
+        "Fasting glucose of 100 mg/dL or more", "Albumin level less than 3.4 g/dL"
+    ];
+
+    // --- HTML Generation ---
+    function generateBinarySelect(idPrefix, label, cssClass) {
+        return `
+            <div class="form-group">
+                <label>${label}</label>
+                <select class="${cssClass}">
+                    <option value="unknown">Don't Know / Not Tested</option>
+                    <option value="0">No (0 pts)</option>
+                    <option value="1">Yes (1 pt)</option>
+                </select>
+            </div>
+        `;
+    }
+
+    function generateScaleSelect(label) {
+        return `
+            <div class="form-group">
+                <label>${label}</label>
+                <select class="cat-b">
+                    <option value="unknown">Don't Know</option>
+                    <option value="0">None (0 pts)</option>
+                    <option value="0.5">Some (0.5 pts)</option>
+                    <option value="0.75">Much (0.75 pts)</option>
+                    <option value="1">Unable (1 pt)</option>
+                </select>
+            </div>
+        `;
+    }
+
+    document.getElementById('category-a').innerHTML = catA_diseases.map((d, i) => generateBinarySelect('a', d, 'cat-a')).join('');
+    document.getElementById('category-b').innerHTML = catB_functioning.map(d => generateScaleSelect(d)).join('');
+    document.getElementById('category-c').innerHTML = catC_labs.map((d, i) => generateBinarySelect('c', d, 'cat-c')).join('');
+
+    // --- Calculation Logic ---
+    function calculateScore() {
+        let totalPoints = 0;
+        let answeredQuestions = 0;
+
+        // Process standard Category A & C (Yes/No)
+        document.querySelectorAll('.cat-a, .cat-c').forEach(el => {
+            if (el.value !== "unknown") {
+                totalPoints += parseFloat(el.value);
+                answeredQuestions += 1;
+            }
+        });
+
+        // Process Cancer specifically
+        const cancerInput = document.getElementById('cancer-input').value;
+        if (cancerInput !== "") {
+            let cancerCount = parseInt(cancerInput);
+            if(cancerCount < 0) cancerCount = 0;
+            
+            totalPoints += cancerCount;
+            // If they have >0 cancers, each distinct type adds to the potential deficits denominator.
+            // If 0, it counts as 1 answered question with 0 points.
+            answeredQuestions += (cancerCount > 0 ? cancerCount : 1); 
+        }
+
+        // Process Category B (Scale)
+        document.querySelectorAll('.cat-b').forEach(el => {
+            if (el.value !== "unknown") {
+                totalPoints += parseFloat(el.value);
+                answeredQuestions += 1;
+            }
+        });
+
+        // Validation
+        if (answeredQuestions === 0) {
+            alert("Please answer at least one question to calculate a score.");
+            return;
+        }
+
+        // Calculate
+        const finalScore = totalPoints / answeredQuestions;
+        displayResult(finalScore, totalPoints, answeredQuestions);
+    }
+
+    function displayResult(score, points, answered) {
+        const resultSection = document.getElementById('result-section');
+        const scoreVal = document.getElementById('score-val');
+        const scoreInterp = document.getElementById('score-interp');
+        const dataNote = document.getElementById('data-note');
+
+        // Reset classes
+        resultSection.className = '';
+
+        let interpretation = "";
+        let colorClass = "";
+
+        if (score < 0.1) {
+            interpretation = "Very Fit"; colorClass = "fit";
+        } else if (score < 0.2) {
+            interpretation = "Well"; colorClass = "well";
+        } else if (score < 0.3) {
+            interpretation = "Managing"; colorClass = "managing";
+        } else if (score < 0.4) {
+            interpretation = "Vulnerable"; colorClass = "vulnerable";
+        } else if (score < 0.5) {
+            interpretation = "Mildly Frail"; colorClass = "mildly-frail";
+        } else if (score < 0.6) {
+            interpretation = "Moderately Frail"; colorClass = "moderately-frail";
+        } else {
+            interpretation = "Severely Frail"; colorClass = "severely-frail";
+        }
+
+        scoreVal.innerText = score.toFixed(3);
+        scoreInterp.innerText = interpretation;
+        resultSection.classList.add(colorClass);
+        
+        dataNote.innerText = `Based on ${points} accumulated points across ${answered} answered parameters.`;
+        resultSection.style.display = 'block';
+        
+        // Scroll to result
+        resultSection.scrollIntoView({ behavior: 'smooth' });
+    }
+</script>
+
+</body>
+</html>
